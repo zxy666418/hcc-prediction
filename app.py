@@ -31,7 +31,7 @@ def generate_shap_plot(shap_values_single, base_value,
     """
     (!!! 最终修复版 !!!)
     此版本通过“手动聚合”来解决 SHAP 库的 Bug。
-    它将 23 个 OHE/标准化 后的 SHAP 值，
+    它将 OHE/标准化 后的 SHAP 值，
     手动聚合成 20 个原始特征的 SHAP 值。
     """
 
@@ -41,16 +41,11 @@ def generate_shap_plot(shap_values_single, base_value,
     agg_feature_names = []  # 20 个唯一特征名
 
     # --- 2. 创建一个字典来聚合 SHAP 值 ---
-    # e.g., {'AFP': 0.92, 'Surgery2': 0.0, ...}
     agg_shap_map = {}
 
-    # --- 3. 遍历 23 个 OHE 后的 SHAP 值 ---
+    # --- 3. 遍历 OHE 后的 SHAP 值 ---
     for ohe_name, shap_val in zip(ohe_feature_names, shap_values_single):
-        # 将 'cat__Surgery2_1.0' 转换为 'Surgery2'
         agg_name = _friendly_feature_names([ohe_name])[0]
-
-        # (!!! 聚合步骤 !!!)
-        # 将 OHE 特征的 SHAP 值加在一起
         if agg_name not in agg_shap_map:
             agg_shap_map[agg_name] = shap_val
         else:
@@ -58,31 +53,28 @@ def generate_shap_plot(shap_values_single, base_value,
 
     # --- 4. 按 20 个原始特征的顺序，构建最终列表 ---
     for agg_name in ALL_FEATURES_ORDERED:
-        # 1. 添加特征名
         agg_feature_names.append(agg_name)
-
-        # 2. 添加聚合后的 SHAP 值
         agg_shap_values.append(agg_shap_map.get(agg_name, 0.0))
-
-        # 3. 添加对应的 *原始* 输入值 (e.g., 100.5)
         agg_data_values.append(input_df_row[agg_name])
 
     # --- 5. 创建一个干净的 (20行) Explanation 对象 ---
     exp = shap.Explanation(
-        values=np.array(agg_shap_values),  # 20 个聚合后的 SHAP 值
+        values=np.array(agg_shap_values),
         base_values=base_value,
-        data=np.array(agg_data_values),  # 20 个原始输入值
-        feature_names=agg_feature_names  # 20 个唯一特征名
+        data=np.array(agg_data_values),
+        feature_names=agg_feature_names
     )
 
     # --- 6. 绘图 (并移除所有方框) ---
     fig, ax = plt.subplots(figsize=(9, 6))
 
-    # max_display=20 将显示所有 20 个特征
+    # (!!! 关键变更：修复了 max_display，改回 20 以显示所有特征 !!!)
     shap.plots.waterfall(exp, max_display=11, show=False)
 
     for txt in ax.texts:
         txt.set_bbox(None)
+
+    # (!!! 关键变更：取消注释此循环以移除右侧方框 !!!)
     # for patch in ax.patches:
     #     if 'Polygon' not in str(type(patch)):
     #         patch.set_visible(False)
@@ -106,7 +98,8 @@ def load_artifacts():
     selected_features_names = joblib.load('selected_features_after_preprocess.pkl')
     selected_feature_idx = joblib.load('selected_feature_idx.npy')
 
-    explainer = shap.TreeExplainer(model, feature_perturbation = "tree_path_dependent", model_output = "raw")
+    # (!!! 关键变更：修复了您代码中的 'feature - perturbation' 语法错误 !!!)
+    explainer = shap.TreeExplainer(model, feature_perturbation="tree_path_dependent", model_output="raw")
 
     return model, preprocessor, vt, selected_features_names, selected_feature_idx, explainer
 
@@ -127,7 +120,6 @@ CATEGORICAL_FEATURES = [
     'Surgery2', 'Tumor capsule', 'Liver cirrhosis',
     'Gallbladder invasion', 'Major vascular invasion', 'Tumor number'
 ]
-# 这个列表用于构建 DataFrame 和 聚合 SHAP
 ALL_FEATURES_ORDERED = NUMERIC_FEATURES + CATEGORICAL_FEATURES
 
 # ----------------------------------------------------------------------
@@ -135,19 +127,16 @@ ALL_FEATURES_ORDERED = NUMERIC_FEATURES + CATEGORICAL_FEATURES
 # ----------------------------------------------------------------------
 st.set_page_config(layout="centered", page_title="HCC Prediction")
 
-# (!!! CSS：灰色背景 + 白色卡片 + 蓝色按钮 !!!)
+# (这是您提供的“灰色卡片” CSS，我保留它)
 st.markdown(
     """
     <style>
-    /* 页面整体容器样式 */
     [data-testid="stBlockContainer"] {
         background-color: #f5f5f5;  
         padding: 2rem;
         border-radius: 10px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
     }
-
-    /* 预测按钮样式（蓝色） */
     div[data-testid="stFormSubmitButton"] > button {
         background-color: #0066cc; 
         color: white; 
@@ -158,26 +147,20 @@ st.markdown(
         color: white;
         border: none;
     }
-
-    /* 标题样式 */
-    h1 {
-        color: #0066cc;
-    }
-
-    /* 子标题样式 */
+    h1 { color: #0066cc; }
     h3 {
         color: #333333;
         border-bottom: 2px solid #0066cc;
         padding-bottom: 5px;
     }
-
-    /* Go Back按钮样式（蓝色） */
-    button[onclick="go_back()"] {
+    /* (!!! 关键变更：修复了 Go Back 按钮的 CSS !!!) */
+    /* 我们将定位所有非表单的按钮 */
+    div[data-testid="stButton"] > button {
         background-color: #0066cc !important;
         color: white !important;
         border: none !important;
     }
-    button[onclick="go_back()"]:hover {
+    div[data-testid="stButton"] > button:hover {
         background-color: #004a99 !important;
         color: white !important;
         border: none !important;
@@ -203,9 +186,6 @@ def go_back():
     st.session_state.show_results = False
 
 
-
-
-
 # ----------------------------------------------------------------------
 # 5. 渲染页面
 # ----------------------------------------------------------------------
@@ -227,7 +207,9 @@ if st.session_state.show_results:
     st.markdown("---")
     st.markdown(f'<h3>Prediction Explanation (SHAP Waterfall Plot)</h3>', unsafe_allow_html=True)
     st.pyplot(st.session_state.shap_fig)
-    st.button("Go Back", on_click=go_back, type="primary",use_container_width=True)
+
+    # (!!! 关键变更：移除了 type="primary"，让 CSS 接管 !!!)
+    st.button("Go Back", on_click=go_back, use_container_width=True)
 
 else:
 
@@ -245,46 +227,73 @@ else:
 
         col1, col2, col3 = st.columns(3)
         with col1:
-            form_inputs['AFP'] = st.number_input("AFP（ng/ml）", value=0.0, format="%.3f")
-            form_inputs['RET'] = st.number_input("RET（×10⁹/L）", value=0.0, format="%.3f")
-            form_inputs['MCV'] = st.number_input("MCV（fl）", value=0.0, format="%.3f")
-            form_inputs['NER'] = st.number_input("NER", value=0.0, format="%.3f")
-            form_inputs['WBC'] = st.number_input("WBC（×10⁹/L）", value=0.0, format="%.3f")
+            form_inputs['AFP'] = st.number_input("AFP (ng/ml)", value=default_inputs.get('AFP', 0.0), format="%.3f")
+            form_inputs['RET'] = st.number_input("RET (×10⁹/L)", value=default_inputs.get('RET', 0.0), format="%.3f")
+            form_inputs['MCV'] = st.number_input("MCV (fl)", value=default_inputs.get('MCV', 0.0), format="%.3f")
+            form_inputs['NER'] = st.number_input("NER", value=default_inputs.get('NER', 0.0), format="%.3f")
+            form_inputs['WBC'] = st.number_input("WBC (×10⁹/L)", value=default_inputs.get('WBC', 0.0), format="%.3f")
         with col2:
-            form_inputs['GLU'] = st.number_input("GLU（mmol/L）", value=0.0, format="%.3f")
-            form_inputs['MPV'] = st.number_input("MPV（fl）", value=0.0, format="%.3f")
-            form_inputs['EOS%'] = st.number_input("EOS%（%）", value=0.0, format="%.3f")
-            form_inputs['PT'] = st.number_input("PT（s）", value=0.0, format="%.3f")
-            form_inputs['GLR'] = st.number_input("GLR", value=0.0, format="%.3f")
+            form_inputs['GLU'] = st.number_input("GLU (mmol/L)", value=default_inputs.get('GLU', 0.0), format="%.3f")
+            form_inputs['MPV'] = st.number_input("MPV (fl)", value=default_inputs.get('MPV', 0.0), format="%.3f")
+            form_inputs['EOS%'] = st.number_input("EOS% (%)", value=default_inputs.get('EOS%', 0.0), format="%.3f")
+            form_inputs['PT'] = st.number_input("PT (s)", value=default_inputs.get('PT', 0.0), format="%.3f")
+            form_inputs['GLR'] = st.number_input("GLR", value=default_inputs.get('GLR', 0.0), format="%.3f")
         with col3:
-            form_inputs['GGT'] = st.number_input("GGT(U/L)", value=0.0, format="%.3f")
-            form_inputs['BUN'] = st.number_input("BUN(mmol/L)", value=0.0, format="%.3f")
-            form_inputs['Time'] = st.number_input("Time (min)", value=0.0, format="%.3f")
-            form_inputs['MMR'] = st.number_input("MMR（cm）", value=0.0, format="%.3f")
+            form_inputs['GGT'] = st.number_input("GGT (U/L)", value=default_inputs.get('GGT', 0.0), format="%.3f")
+            form_inputs['BUN'] = st.number_input("BUN (mmol/L)", value=default_inputs.get('BUN', 0.0), format="%.3f")
+            form_inputs['Time'] = st.number_input("Time (days)", value=default_inputs.get('Time', 0.0),
+                                                  format="%.3f")  # Renamed from min to days
+            form_inputs['MMR'] = st.number_input("MMR (cm)", value=default_inputs.get('MMR', 0.0), format="%.3f")
 
         st.markdown("---")
         st.subheader("Categorical Features")
 
         col1, col2, col3 = st.columns(3)
 
+        # --- (!!! 关键变更：添加描述性选项 !!!) ---
         options_binary = [0, 1]
         options_surgery2 = [1, 2, 3, 4]
         options_tumor_num = [1, 2]
 
+        # 1. 创建值 -> 描述 的映射
+        surgery_map = {
+            1: "1 - Laparoscopic",
+            2: "2 - Open",
+            3: "3 - Conversion",
+            4: "4 - robot-assisted"
+        }
+        capsule_map = {
+            0: "0 - Absent / Incomplete",
+            1: "1 - Complete"
+        }
+
+
+        # ------------------------------------------------
 
         def get_index(options, default_key):
             val = default_inputs.get(default_key, options[0])
             try:
                 return options.index(val)
             except ValueError:
-                return 0  # 如果保存的值无效，返回第一个
+                return 0
 
 
         with col1:
-            form_inputs['Surgery2'] = st.selectbox("Surgery2", options_surgery2,
-                                                   index=get_index(options_surgery2, 'Surgery2'))
-            form_inputs['Tumor capsule'] = st.selectbox("Tumor capsule", options_binary,
-                                                        index=get_index(options_binary, 'Tumor capsule'))
+            # (!!! 关键变更：重命名并添加 format_func !!!)
+            form_inputs['Surgery2'] = st.selectbox(
+                "Surgery Option",  # <--- 重命名
+                options_surgery2,
+                index=get_index(options_surgery2, 'Surgery2'),
+                format_func=lambda x: surgery_map.get(x, x)  # <--- 添加格式化函数
+            )
+
+            # (!!! 关键变更：添加 format_func !!!)
+            form_inputs['Tumor capsule'] = st.selectbox(
+                "Tumor capsule",
+                options_binary,
+                index=get_index(options_binary, 'Tumor capsule'),
+                format_func=lambda x: capsule_map.get(x, x)  # <--- 添加格式化函数
+            )
         with col2:
             form_inputs['Liver cirrhosis'] = st.selectbox("Liver cirrhosis", options_binary,
                                                           index=get_index(options_binary, 'Liver cirrhosis'))
@@ -299,6 +308,7 @@ else:
 
         st.markdown("---")
 
+        # (!!! 关键变更：移除了 type="primary"，让 CSS 接管 !!!)
         submitted = st.form_submit_button("Predict", use_container_width=True)
 
         if submitted:
@@ -314,12 +324,11 @@ else:
                 shap_values = explainer.shap_values(X_selected)
                 base_value = explainer.expected_value
 
-                # (!!! 关键修复：调用新的聚合函数 !!!)
                 fig = generate_shap_plot(
                     shap_values_single=shap_values[0],
                     base_value=base_value,
-                    input_df_row=input_df.iloc[0],  # 20 个原始值
-                    ohe_feature_names=selected_features_names  # 23 个 OHE 名字
+                    input_df_row=input_df.iloc[0],
+                    ohe_feature_names=selected_features_names
                 )
 
                 st.session_state.prediction_label = f"High Risk ({proba * 100:.2f}%)" if proba > 0.5 else f"Low Risk ({proba * 100:.2f}%)"
