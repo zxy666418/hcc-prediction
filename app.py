@@ -241,7 +241,7 @@ else:
         with col3:
             form_inputs['GGT'] = st.number_input("GGT (U/L)", value=default_inputs.get('GGT', 0.0), format="%.3f")
             form_inputs['BUN'] = st.number_input("BUN (mmol/L)", value=default_inputs.get('BUN', 0.0), format="%.3f")
-            form_inputs['Time'] = st.number_input("Time (days)", value=default_inputs.get('Time', 0.0),
+            form_inputs['Time'] = st.number_input("Time (min)", value=default_inputs.get('Time', 0.0),
                                                   format="%.3f")  # Renamed from min to days
             form_inputs['MMR'] = st.number_input("MMR (cm)", value=default_inputs.get('MMR', 0.0), format="%.3f")
 
