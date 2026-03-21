@@ -109,16 +109,16 @@ model, preprocessor, vt, \
     selected_features_names, selected_feature_idx, \
     explainer = load_artifacts()
 
+original_cols = joblib.load('original_columns.pkl')
 # ----------------------------------------------------------------------
 # 3. 定义20个特征的列表 (用于表单和 DataFrame)
 # ----------------------------------------------------------------------
 NUMERIC_FEATURES = [
-    'AFP', 'RET', 'MCV', 'NER', 'WBC', 'GLU', 'MPV', 'EOS%',
-    'PT', 'GLR', 'GGT', 'BUN', 'Time', 'MMR'
+    'AFP', 'C02', 'NER', 'WBC', 'GLU', 'MPV', 'EOS%', 'PT', 'ALB', 'PLT', 'N%', 'Time', 'MMR'
 ]
 CATEGORICAL_FEATURES = [
-    'Surgery2', 'Tumor capsule', 'Liver cirrhosis',
-    'Gallbladder invasion', 'Major vascular invasion', 'Tumor number'
+    'Surgery2', 'Tumor capsule', 'Liver cirrhosis', 'Gallbladder invasion', 'Major vascular invasion', 'Tumor number',
+    'Pericancerous liver tissue'
 ]
 ALL_FEATURES_ORDERED = NUMERIC_FEATURES + CATEGORICAL_FEATURES
 
@@ -228,19 +228,18 @@ else:
         col1, col2, col3 = st.columns(3)
         with col1:
             form_inputs['AFP'] = st.number_input("AFP (ng/ml)", value=default_inputs.get('AFP', 0.0), format="%.3f")
-            form_inputs['RET'] = st.number_input("RET (×10⁹/L)", value=default_inputs.get('RET', 0.0), format="%.3f")
-            form_inputs['MCV'] = st.number_input("MCV (fl)", value=default_inputs.get('MCV', 0.0), format="%.3f")
+            form_inputs['GLU'] = st.number_input("GLU (mmol/L)", value=default_inputs.get('GLU', 0.0), format="%.3f")
+            form_inputs['MPV'] = st.number_input("MPV (fl)", value=default_inputs.get('MPV', 0.0), format="%.3f")
             form_inputs['NER'] = st.number_input("NER", value=default_inputs.get('NER', 0.0), format="%.3f")
             form_inputs['WBC'] = st.number_input("WBC (×10⁹/L)", value=default_inputs.get('WBC', 0.0), format="%.3f")
         with col2:
-            form_inputs['GLU'] = st.number_input("GLU (mmol/L)", value=default_inputs.get('GLU', 0.0), format="%.3f")
-            form_inputs['MPV'] = st.number_input("MPV (fl)", value=default_inputs.get('MPV', 0.0), format="%.3f")
             form_inputs['EOS%'] = st.number_input("EOS% (%)", value=default_inputs.get('EOS%', 0.0), format="%.3f")
             form_inputs['PT'] = st.number_input("PT (s)", value=default_inputs.get('PT', 0.0), format="%.3f")
-            form_inputs['GLR'] = st.number_input("GLR", value=default_inputs.get('GLR', 0.0), format="%.3f")
+            form_inputs['ALB'] = st.number_input("ALB (IU/L)", value=default_inputs.get('ALB', 0.0), format="%.3f")
+            form_inputs['PLT'] = st.number_input("PLT (10^9/L)", value=default_inputs.get('PLT', 0.0), format="%.3f")
+            form_inputs['C02'] = st.number_input("C02 (mmol/L)", value=default_inputs.get('C02', 0.0), format="%.3f")
         with col3:
-            form_inputs['GGT'] = st.number_input("GGT (U/L)", value=default_inputs.get('GGT', 0.0), format="%.3f")
-            form_inputs['BUN'] = st.number_input("BUN (mmol/L)", value=default_inputs.get('BUN', 0.0), format="%.3f")
+            form_inputs['N%'] = st.number_input("N% (%)", value=default_inputs.get('N%', 0.0), format="%.3f")
             form_inputs['Time'] = st.number_input("Time (min)", value=default_inputs.get('Time', 0.0),
                                                   format="%.3f")  # Renamed from min to days
             form_inputs['MMR'] = st.number_input("MMR (cm)", value=default_inputs.get('MMR', 0.0), format="%.3f")
@@ -294,6 +293,10 @@ else:
                 index=get_index(options_binary, 'Tumor capsule'),
                 format_func=lambda x: capsule_map.get(x, x)  # <--- 添加格式化函数
             )
+
+            form_inputs['Pericancerous liver tissue'] = st.selectbox("Pericancerous liver tissue", options_binary,
+                                                                  index=get_index(options_binary,
+                                                                                  'Pericancerous liver tissue'))
         with col2:
             form_inputs['Liver cirrhosis'] = st.selectbox("Liver cirrhosis", options_binary,
                                                           index=get_index(options_binary, 'Liver cirrhosis'))
@@ -313,8 +316,16 @@ else:
 
         if submitted:
             try:
-                input_df = pd.DataFrame([form_inputs])[ALL_FEATURES_ORDERED]
+                # input_df = pd.DataFrame([form_inputs])[ALL_FEATURES_ORDERED]
                 st.session_state.form_inputs = form_inputs
+
+                input_df = pd.DataFrame(columns=original_cols)
+                input_df.loc[0] = 0  # 也可以用 np.nan，因为我们有插补器
+
+                # 2. 将网页上用户真实填写的 20 个特征值，覆盖进去
+                for col_name, val in form_inputs.items():
+                    if col_name in input_df.columns:
+                        input_df.at[0, col_name] = val
 
                 X_proc = preprocessor.transform(input_df)
                 X_vt = vt.transform(X_proc)
@@ -331,7 +342,7 @@ else:
                     ohe_feature_names=selected_features_names
                 )
 
-                st.session_state.prediction_label = f"High Risk ({proba * 100:.2f}%)" if proba > 0.5 else f"Low Risk ({proba * 100:.2f}%)"
+                st.session_state.prediction_label = f"High Risk ({proba * 100:.2f}%)" if proba > 0.310 else f"Low Risk ({proba * 100:.2f}%)"
                 st.session_state.shap_fig = fig
 
                 go_to_results()
