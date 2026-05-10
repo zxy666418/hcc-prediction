@@ -1,7 +1,17 @@
+# 基础框架
 streamlit
-scikit-learn==1.7.2
-shap
-pandas
-numpy
-matplotlib
 joblib
+
+# 数据处理与数学计算
+numpy
+pandas
+scipy
+
+# 机器学习（务必包含 xgboost，因为你用了 XGBClassifier）
+scikit-learn==1.7.2
+xgboost
+
+# 绘图（如果你 app.py 里有绘图代码）
+matplotlib
+seaborn
+shap
