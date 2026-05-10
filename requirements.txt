@@ -3,3 +3,5 @@ scikit-learn==1.7.2
 shap
 pandas
 numpy
+matplotlib
+joblib
